@@ -1,0 +1,4 @@
+[tools]
+pipx = "latest"
+python = '3.12' 
+ruff = "latest"

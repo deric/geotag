@@ -1,0 +1,19 @@
+[project]
+name = "geotag"
+version = "0.1.0"
+description = "Annotate photos/RAW/sidecar files with GPS data"
+authors = [
+    {name = "Tomas Barton", email = "barton.tomas@gmail.com"},
+]
+dependencies = ["rdflib"]
+requires-python = ">=3.12"
+readme = "README.md"
+license = {text = "MIT"}
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+
+[tool.pdm]
+distribution = true
