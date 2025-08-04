@@ -5,7 +5,7 @@ description = "Annotate photos/RAW/sidecar files with GPS data"
 authors = [
     {name = "Tomas Barton", email = "barton.tomas@gmail.com"},
 ]
-dependencies = ["rdflib"]
+dependencies = []
 requires-python = ">=3.12"
 readme = "README.md"
 license = {text = "MIT"}
