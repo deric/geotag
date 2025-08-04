@@ -83,7 +83,7 @@ def gpx_import(args):
         print(f"Created: {output_file}")
 
 
-class GeoTagger:
+class ExifTagger:
     def __init__(self, args):
         self.dry_run = args.dry_run
         self.verbose = args.verbose
@@ -97,19 +97,15 @@ class GeoTagger:
         """
         try:
             cmd = ["exiftool", "-DateTimeOriginal", file]
-            if self.dry_run:
-                cmd_str = " ".join(map(cmd, list))
-                print(f"DRY RUN: {cmd_str}")
-            else:
-                result = subprocess.run(cmd, capture_output=True, text=True)
-                if result.returncode != 0:
-                    print(f"erorr: {result.stderr.strip()}")
-                pos = result.stdout.find(":")
-                if pos > 0:
-                    str = result.stdout[(pos + 1) : -1].strip()
-                    # parse EXIF date
-                    taken = datetime.strptime(str, "%Y:%m:%d %H:%M:%S")
-                    return taken
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                print(f"erorr: {result.stderr.strip()}")
+            pos = result.stdout.find(":")
+            if pos > 0:
+                str = result.stdout[(pos + 1) : -1].strip()
+                # parse EXIF date
+                taken = datetime.strptime(str, "%Y:%m:%d %H:%M:%S")
+                return taken
         except subprocess.TimeoutExpired:
             if not self.dry_run:
                 print("timeout")
@@ -130,16 +126,19 @@ class GeoTagger:
             print(f"Input GPX file {path} was not found")
         return path
 
+    def to_str(self, array):
+        return " ".join(str(x) for x in array)
+
     def update_exif(self, photo, gpx):
         """
         Update photo's GPS coordinates based on GPX file
         """
         try:
-            cmd = ["exiftool", "-overwrite_original", "-geotag", gpx, photo]
+            cmd = ["exiftool", "-overwrite_original", "-geotag", gpx, str(photo)]
             if self.dry_run:
-                cmd_str = " ".join(f'"{cmd}"')
-                print(f"DRY RUN: {cmd_str}")
+                print(f"DRY RUN: {self.to_str(cmd)}")
             else:
+                print(f"cmd: {self.to_str(cmd)}")
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 print(result.stdout)
                 if result.returncode != 0:
@@ -160,11 +159,10 @@ class GeoTagger:
         print(f"searching for *.{self.match}")
         for f in pathlib.Path(input_dir).glob(f"*.{self.match}", case_sensitive=False):
             photo_date = self.date_taken(f)
-            if photo_date:
-                gpx = self.gpx_path(photo_date)
-                if self.verbose:
-                    print(f"{f}: {photo_date} -> {gpx}")
-                self.update_exif(f, gpx)
+            gpx = self.gpx_path(photo_date)
+            if self.verbose:
+                print(f"{f}: {photo_date} -> {gpx}")
+            self.update_exif(f, gpx)
 
 
 def cli():
@@ -184,20 +182,20 @@ def cli():
         "-o", "--output", type=str, help="path to GPX directory", default="gpx"
     )
 
-    apply = subparsers.add_parser("apply", help="apply GPS data to RAW/sidecar files")
-    apply.add_argument(
+    exif = subparsers.add_parser("exif", help="apply GPS data to RAW/sidecar files")
+    exif.add_argument(
         "-g", "--gpx", type=str, help="path to GPX directory", default="gpx"
     )
-    apply.add_argument(
+    exif.add_argument(
         "-m", "--match", type=str, help="file extension to match", default="nef"
     )
-    apply.add_argument(
+    exif.add_argument(
         "-i", "--input", type=str, help="path to photos directory", required=True
     )
-    apply.add_argument(
+    exif.add_argument(
         "-n", "--dry-run", help="don't execute commands", action="store_true"
     )
-    apply.add_argument("-v", "--verbose", help="verbose output", action="store_true")
+    exif.add_argument("-v", "--verbose", help="verbose output", action="store_true")
 
     return parser.parse_args()
 
@@ -206,8 +204,8 @@ def main():
     args = cli()
     if args.command == "import":
         gpx_import(args)
-    elif args.command == "apply":
-        tagger = GeoTagger(args)
+    elif args.command == "exif":
+        tagger = ExifTagger(args)
         tagger.apply()
     else:
         print("unknown command, use -h/--help")
