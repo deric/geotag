@@ -8,6 +8,8 @@ import sys
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
 from datetime import datetime
+from libxmp.utils import file_to_dict
+from libxmp import XMPFiles, consts, XMPMeta
 
 
 def create_gpx_file(points, output_file):
@@ -165,6 +167,152 @@ class ExifTagger:
             self.update_exif(f, gpx)
 
 
+class SidecarTagger:
+    def __init__(self, args):
+        self.dry_run = args.dry_run
+        self.verbose = args.verbose
+        self.gpx = args.gpx
+        self.input = args.input
+        self.match = args.match
+
+    def load_xmp(self, file):
+        with open(file, "r") as content:
+            return content.read()
+
+    def apply(self):
+        input_dir = self.input
+
+        if not os.path.isdir(input_dir):
+            sys.exit(f"{input_dir} was not found")
+
+        print(f"Processing {input_dir}")
+        print(f"searching for *.{self.match}")
+        for f in pathlib.Path(input_dir).glob(f"*.{self.match}", case_sensitive=False):
+            print(f)
+
+            xmp = XMPMeta()
+            xmp.parse_from_str(self.load_xmp(f), xmpmeta_wrap=True)
+            print(xmp)
+            print(xmp.get_property("http://ns.adobe.com/tiff/1.0/", "Model"))
+            print(xmp.get_property("http://ns.adobe.com/exif/1.0/", "DateTimeOriginal"))
+            if xmp.does_property_exist("http://ns.adobe.com/exif/1.0/", "GPSLatitude"):
+                print(xmp.get_property("http://ns.adobe.com/exif/1.0/", "GPSLatitude"))
+            if xmp.does_property_exist("http://ns.adobe.com/exif/1.0/", "GPSLatitude"):
+                print(xmp.get_property("http://ns.adobe.com/exif/1.0/", "GPSLongitude"))
+            # TODO: set_property value
+
+
+class On1Tagger:
+    def __init__(self, args):
+        self.dry_run = args.dry_run
+        self.verbose = args.verbose
+        self.gpx = args.gpx
+        self.input = args.input
+        self.match = args.match
+        self.force = args.force
+
+    def load_json(self, file):
+        with open(file) as f:
+            return json.load(f)
+
+    def read_geo(self, raw):
+        """
+        Extract GPS position from EXIF data
+        -n for numerical precision
+        """
+        try:
+            cmd = ["exiftool", "-n", "-GPSPosition", raw]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                print(f"erorr: {result.stderr.strip()}")
+            pos = result.stdout.find(":")
+            if pos > 0:
+                str = result.stdout[(pos + 1) : -1].strip()
+                return str.split()
+        except subprocess.TimeoutExpired:
+            if not self.dry_run:
+                print("timeout")
+        except Exception as e:
+            print(f"Error: {e}")
+
+    def deg2dms(self, dd):
+        negative = dd < 0
+        dd = abs(dd)
+        minutes, seconds = divmod(dd * 3600, 60)
+        degrees, minutes = divmod(minutes, 60)
+        if negative:
+            if degrees > 0:
+                degrees = -degrees
+            elif minutes > 0:
+                minutes = -minutes
+            else:
+                seconds = -seconds
+        return (degrees, minutes, seconds)
+
+    def geo_format(self, h, m, s):
+        return f"{h:.0f}°{m:.0f}'{s:.6f}\""
+
+    def gps_from_raw(self, file):
+        path = str(file)
+        pos = path.rfind(".")
+        without_ext = path[0:pos]
+        raw1 = f"{without_ext}.NEF"
+        raw2 = f"{without_ext}.nef"
+        geo = None
+        if os.path.isfile(raw1):
+            geo = self.read_geo(raw1)
+        elif os.path.isfile(raw2):
+            geo = self.read_geo(raw2)
+        else:
+            print(f"couldn't find RAW {raw1} nor {raw2}")
+
+        if geo:
+            if self.verbose:
+                print(f"geo: {geo}")
+            h, m, s = self.deg2dms(float(geo[0]))
+            lat = self.geo_format(h, m, s)
+            h, m, s = self.deg2dms(float(geo[1]))
+            lon = self.geo_format(h, m, s)
+            dms = f"{lat} N {lon} E"
+            return dms
+
+    def write_json(self, f, data):
+        json_str = json.dumps(data)
+        with open(f, "w") as f:
+            f.write(json_str)
+
+    def apply(self):
+        input_dir = self.input
+
+        if not os.path.isdir(input_dir):
+            sys.exit(f"{input_dir} was not found")
+
+        print(f"Processing {input_dir}")
+        print(f"searching for *.{self.match}")
+        for f in pathlib.Path(input_dir).glob(f"*.{self.match}", case_sensitive=False):
+            print(f)
+            json = self.load_json(f)
+            if "photos" in json:
+                for val in json["photos"]:
+                    if "metadata" in json["photos"][val]:
+                        meta = json["photos"][val]["metadata"]
+                        if "GPS" in meta:
+                            if self.force:
+                                gps = self.gps_from_raw(f.resolve())
+                                print(f"updated gps {meta['GPS']} -> {gps}")
+                                meta["GPS"] = gps
+                                self.write_json(str(f), json)
+                            else:
+                                print(meta["GPS"])
+                        else:
+                            gps = self.gps_from_raw(f.resolve())
+                            print(gps)
+                            meta["GPS"] = gps
+                            # expected
+                            # "GPS":"49°39'11.043217\" N 18°7'29.517118\" E",
+                            self.write_json(str(f), json)
+
+
 def cli():
     parser = argparse.ArgumentParser(
         description="Annotate RAW/sidecar files with GPS coordinates"
@@ -182,7 +330,7 @@ def cli():
         "-o", "--output", type=str, help="path to GPX directory", default="gpx"
     )
 
-    exif = subparsers.add_parser("exif", help="apply GPS data to RAW/sidecar files")
+    exif = subparsers.add_parser("exif", help="apply GPS data to RAW files")
     exif.add_argument(
         "-g", "--gpx", type=str, help="path to GPX directory", default="gpx"
     )
@@ -197,6 +345,39 @@ def cli():
     )
     exif.add_argument("-v", "--verbose", help="verbose output", action="store_true")
 
+    sidecar = subparsers.add_parser("sidecar", help="apply GPS data to sidecar files")
+    sidecar.add_argument(
+        "-g", "--gpx", type=str, help="path to GPX directory", default="gpx"
+    )
+    sidecar.add_argument(
+        "-m", "--match", type=str, help="file extension to match", default="xmp"
+    )
+    sidecar.add_argument(
+        "-i", "--input", type=str, help="path to photos directory", required=True
+    )
+    sidecar.add_argument(
+        "-n", "--dry-run", help="don't execute commands", action="store_true"
+    )
+    sidecar.add_argument("-v", "--verbose", help="verbose output", action="store_true")
+
+    on1 = subparsers.add_parser("on1", help="apply GPS data to on1 files")
+    on1.add_argument(
+        "-g", "--gpx", type=str, help="path to GPX directory", default="gpx"
+    )
+    on1.add_argument(
+        "-m", "--match", type=str, help="file extension to match", default="on1"
+    )
+    on1.add_argument(
+        "-i", "--input", type=str, help="path to photos directory", required=True
+    )
+    on1.add_argument(
+        "-n", "--dry-run", help="don't execute commands", action="store_true"
+    )
+    on1.add_argument("-v", "--verbose", help="verbose output", action="store_true")
+    on1.add_argument(
+        "-f", "--force", help="overwrite gps coordinates", action="store_true"
+    )
+
     return parser.parse_args()
 
 
@@ -206,6 +387,12 @@ def main():
         gpx_import(args)
     elif args.command == "exif":
         tagger = ExifTagger(args)
+        tagger.apply()
+    elif args.command == "sidecar":
+        tagger = SidecarTagger(args)
+        tagger.apply()
+    elif args.command == "on1":
+        tagger = On1Tagger(args)
         tagger.apply()
     else:
         print("unknown command, use -h/--help")
