@@ -8,8 +8,7 @@ import sys
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
 from datetime import datetime
-# from libxmp.utils import file_to_dict
-# from libxmp import XMPFiles, consts, XMPMeta
+from libxmp import XMPMeta
 
 
 def create_gpx_file(points, output_file):
@@ -170,7 +169,9 @@ class ExifTagger:
 
             print(f"Processing {input_dir}")
             print(f"searching for *.{self.match}")
-            for f in pathlib.Path(input_dir).glob(f"*.{self.match}", case_sensitive=False):
+            for f in pathlib.Path(input_dir).glob(
+                f"*.{self.match}", case_sensitive=False
+            ):
                 self.process_photo(f)
 
 
@@ -313,7 +314,7 @@ class On1Tagger:
                             meta["GPS"] = gps
                             self.write_json(str(f), json)
                         else:
-                            if meta['GPS'] == None:
+                            if meta["GPS"] is None:
                                 print("missing GPS data in image file")
                             else:
                                 print(f"[noop] {meta['GPS']}")
