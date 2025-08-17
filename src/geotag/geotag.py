@@ -281,36 +281,53 @@ class On1Tagger:
         with open(f, "w") as f:
             f.write(json_str)
 
-    def apply(self):
-        input_dir = self.input
-
-        if not os.path.isdir(input_dir):
-            sys.exit(f"{input_dir} was not found")
-
-        print(f"Processing {input_dir}")
-        print(f"searching for *.{self.match}")
-        for f in pathlib.Path(input_dir).glob(f"*.{self.match}", case_sensitive=False):
-            print(f)
-            json = self.load_json(f)
-            if "photos" in json:
-                for val in json["photos"]:
-                    if "metadata" in json["photos"][val]:
-                        meta = json["photos"][val]["metadata"]
-                        if "GPS" in meta:
-                            if self.force:
-                                gps = self.gps_from_raw(f.resolve())
-                                print(f"updated gps {meta['GPS']} -> {gps}")
-                                meta["GPS"] = gps
-                                self.write_json(str(f), json)
-                            else:
-                                print(meta["GPS"])
-                        else:
-                            gps = self.gps_from_raw(f.resolve())
-                            print(gps)
+    def update_gps(self, file):
+        print(f"updating GPS: {file}")
+        filename, file_extension = os.path.splitext(file)
+        # in case user provides path directly to RAW/jpg file
+        if not file_extension == '.on1':
+            f = f"{filename}.on1"
+            if not os.path.isfile(f):
+                print(f"could not find on1 sidecar: {f}")
+                return
+        else:
+            f = file
+        # TODO: check mime type?
+        json = self.load_json(f)
+        if "photos" in json:
+            for val in json["photos"]:
+                if "metadata" in json["photos"][val]:
+                    meta = json["photos"][val]["metadata"]
+                    if "GPS" in meta:
+                        if self.force:
+                            gps = self.gps_from_raw(f)
+                            print(f"updated gps {meta['GPS']} -> {gps}")
                             meta["GPS"] = gps
-                            # expected
-                            # "GPS":"49°39'11.043217\" N 18°7'29.517118\" E",
                             self.write_json(str(f), json)
+                        else:
+                            print(meta["GPS"])
+                    else:
+                        gps = self.gps_from_raw(f)
+                        print(gps)
+                        meta["GPS"] = gps
+                        # expected
+                        # "GPS":"49°39'11.043217\" N 18°7'29.517118\" E",
+                        self.write_json(str(f), json)
+
+    def apply(self):
+        print(f"got path {self.input}")
+        if os.path.isfile(self.input):
+            print(f"Processing single file {self.input}")
+            self.update_gps(self.input)
+        else:
+            input_dir = self.input
+            if not os.path.isdir(input_dir):
+                sys.exit(f"Directory {input_dir} was not found")
+
+            print(f"Processing {input_dir}")
+            print(f"searching for *.{self.match}")
+            for f in pathlib.Path(input_dir).glob(f"*.{self.match}", case_sensitive=False):
+                self.update_gps(f)
 
 
 def cli():
