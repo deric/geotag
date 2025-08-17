@@ -11,6 +11,7 @@ This tool might help to annotate photos (RAW) based on GPX data.
 ./src/geotag/geotag.py import -i timeline.json -o gpx
 ```
 This should convert Google Timeline into a tree structure `gpx/{year}/{month}/{day}.gpx`. Try using e.g. [GPXSee](https://www.gpxsee.org) to inspect the data.
+ 
  3. Update GPS EXIF data based on GPX data:
 ```
 ./src/geotag/geotag.py exif -i ~/photos/foo
@@ -41,6 +42,11 @@ Note this tool is currently experimental, alpha state.
  - [x] exif sync
  - [ ] sidecar (not fully implemented)
  - [x] `*.on1` sync to on1 sidecar files
+ 
+Use [mise](https://mise.jdx.dev/getting-started.html) to install dev dependencies. Then from project dir:
+```
+mise install
+```
 
 ## requirements
 
