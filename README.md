@@ -1,5 +1,7 @@
 # geotag
 
+This tool might help to annotate photos based on GPX data.
+
 ## requirements
 
  - `exiftool`
