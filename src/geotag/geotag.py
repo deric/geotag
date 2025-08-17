@@ -8,8 +8,8 @@ import sys
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
 from datetime import datetime
-from libxmp.utils import file_to_dict
-from libxmp import XMPFiles, consts, XMPMeta
+# from libxmp.utils import file_to_dict
+# from libxmp import XMPFiles, consts, XMPMeta
 
 
 def create_gpx_file(points, output_file):
