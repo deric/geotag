@@ -136,6 +136,8 @@ class ExifTagger:
         """
         try:
             cmd = ["exiftool", "-overwrite_original", "-geotag", gpx, str(photo)]
+            if self.verbose:
+                cmd.append("-v2")
             if self.dry_run:
                 print(f"DRY RUN: {self.to_str(cmd)}")
             else:
