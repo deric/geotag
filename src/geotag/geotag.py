@@ -210,6 +210,7 @@ class On1Tagger:
         self.input = args.input
         self.match = args.match
         self.force = args.force
+        self.ext = args.ext
 
     def load_json(self, file):
         with open(file) as f:
@@ -223,6 +224,8 @@ class On1Tagger:
         try:
             cmd = ["exiftool", "-n", "-GPSPosition", raw]
             result = subprocess.run(cmd, capture_output=True, text=True)
+            if self.verbose:
+                print(f"exif: {result.stdout}")
             if result.returncode != 0:
                 print(f"erorr: {result.stderr.strip()}")
             pos = result.stdout.find(":")
@@ -254,8 +257,8 @@ class On1Tagger:
 
     def gps_from_raw(self, file):
         filename, file_extension = os.path.splitext(file)
-        raw1 = f"{filename}.NEF"
-        raw2 = f"{filename}.nef"
+        raw1 = f"{filename}.{self.ext.upper()}"
+        raw2 = f"{filename}.{self.ext.lower()}"
         geo = None
         if os.path.isfile(raw1):
             geo = self.read_geo(raw1)
@@ -303,7 +306,10 @@ class On1Tagger:
                             meta["GPS"] = gps
                             self.write_json(str(f), json)
                         else:
-                            print(f"[noop] {meta['GPS']}")
+                            if meta['GPS'] == None:
+                                print("missing GPS data in image file")
+                            else:
+                                print(f"[noop] {meta['GPS']}")
                     else:
                         gps = self.gps_from_raw(f)
                         print(f"[write] {gps}")
@@ -393,6 +399,9 @@ def cli():
     on1.add_argument("-v", "--verbose", help="verbose output", action="store_true")
     on1.add_argument(
         "-f", "--force", help="overwrite gps coordinates", action="store_true"
+    )
+    on1.add_argument(
+        "-e", "--ext", type=str, help="Image (RAW) file extension", default="nef"
     )
 
     return parser.parse_args()
