@@ -16,6 +16,9 @@ This should convert Google Timeline into a tree structure `gpx/{year}/{month}/{d
 ```
 ./src/geotag/geotag.py exif -i ~/photos/foo
 ```
+which would go through all image files in given path and attempt to estimate GPS position based on GPX data. Note the location might be very incaurate, depending GPS data sampling frequency.
+
+use `-n/--dry-run` to see which commands will be executed.
 
 see `-h` for more details
 ```

@@ -151,20 +151,27 @@ class ExifTagger:
         except Exception as e:
             print(f"Error: {e}")
 
+    def process_photo(self, f):
+        photo_date = self.date_taken(f)
+        gpx = self.gpx_path(photo_date)
+        if self.verbose:
+            print(f"{f}: {photo_date} -> {gpx}")
+        self.update_exif(f, gpx)
+
     def apply(self):
-        input_dir = self.input
+        print(f"got path {self.input}")
+        if os.path.isfile(self.input):
+            print(f"Processing single file {self.input}")
+            self.process_photo(self.input)
+        else:
+            input_dir = self.input
+            if not os.path.isdir(input_dir):
+                sys.exit(f"Directory {input_dir} was not found")
 
-        if not os.path.isdir(input_dir):
-            sys.exit(f"{input_dir} was not found")
-
-        print(f"Processing {input_dir}")
-        print(f"searching for *.{self.match}")
-        for f in pathlib.Path(input_dir).glob(f"*.{self.match}", case_sensitive=False):
-            photo_date = self.date_taken(f)
-            gpx = self.gpx_path(photo_date)
-            if self.verbose:
-                print(f"{f}: {photo_date} -> {gpx}")
-            self.update_exif(f, gpx)
+            print(f"Processing {input_dir}")
+            print(f"searching for *.{self.match}")
+            for f in pathlib.Path(input_dir).glob(f"*.{self.match}", case_sensitive=False):
+                self.process_photo(f)
 
 
 class SidecarTagger:
