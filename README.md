@@ -35,6 +35,14 @@ optional arguments:
   -h, --help            show this help message and exit
 ```
 
+### on1 sidecar files
+
+update single RAW:
+```
+python3 ./src/geotag/geotag.py on1 -i ~/Pictures/test/DSC_8270.NEF -v
+```
+would lookg for `~/Pictures/test/DSC_8270.on1` and update metadata in JSON format.
+
 ## Development
 
 Note this tool is currently experimental, alpha state.

@@ -253,11 +253,9 @@ class On1Tagger:
         return f"{h:.0f}°{m:.0f}'{s:.6f}\""
 
     def gps_from_raw(self, file):
-        path = str(file)
-        pos = path.rfind(".")
-        without_ext = path[0:pos]
-        raw1 = f"{without_ext}.NEF"
-        raw2 = f"{without_ext}.nef"
+        filename, file_extension = os.path.splitext(file)
+        raw1 = f"{filename}.NEF"
+        raw2 = f"{filename}.nef"
         geo = None
         if os.path.isfile(raw1):
             geo = self.read_geo(raw1)
@@ -282,10 +280,10 @@ class On1Tagger:
             f.write(json_str)
 
     def update_gps(self, file):
-        print(f"updating GPS: {file}")
+        print(f"checking GPS: {file}")
         filename, file_extension = os.path.splitext(file)
         # in case user provides path directly to RAW/jpg file
-        if not file_extension == '.on1':
+        if not file_extension == ".on1":
             f = f"{filename}.on1"
             if not os.path.isfile(f):
                 print(f"could not find on1 sidecar: {f}")
@@ -305,10 +303,10 @@ class On1Tagger:
                             meta["GPS"] = gps
                             self.write_json(str(f), json)
                         else:
-                            print(meta["GPS"])
+                            print(f"[noop] {meta['GPS']}")
                     else:
                         gps = self.gps_from_raw(f)
-                        print(gps)
+                        print(f"[write] {gps}")
                         meta["GPS"] = gps
                         # expected
                         # "GPS":"49°39'11.043217\" N 18°7'29.517118\" E",
@@ -326,7 +324,9 @@ class On1Tagger:
 
             print(f"Processing {input_dir}")
             print(f"searching for *.{self.match}")
-            for f in pathlib.Path(input_dir).glob(f"*.{self.match}", case_sensitive=False):
+            for f in pathlib.Path(input_dir).glob(
+                f"*.{self.match}", case_sensitive=False
+            ):
                 self.update_gps(f)
 
 
